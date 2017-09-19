@@ -68,7 +68,8 @@ isConsistent (Move "2257" 1 1) "2529"  = False
 -}
 -- 6 -----------------------------------------
 filterCodes :: Move -> [Code] -> [Code]
-filterCodes = undefined
+filterCodes mv cds = filter (\cd -> isConsistent mv cd)
+                            cds
 
 -- 7 -----------------------------------------
 allCodes :: Int -> [Code]
@@ -91,5 +92,17 @@ addDigits str = map (\chr -> str ++ [chr])
 
 -- 8 -----------------------------------------
 solve :: Code -> [Move]
-solve = undefined
- 
+solve cd = solveHelper cd (allCodes (length cd))
+
+solveHelper :: Code -> [Code] -> [Move]
+solveHelper cd cds = let mv = getMove cd (head cds)
+                     in  mv : 
+                         (if (isFound mv) then []
+                          else (solveHelper cd
+                                           (filterCodes mv
+                                                       (tail cds))))
+
+-- checks if mv is the desired one
+isFound :: Move -> Bool
+isFound (Move att f p) = (f == (length att)) &&
+                         (p == 0)
