@@ -50,7 +50,6 @@ test:
 matches "1589" "1158"
 -}
 -- 4 -----------------------------------------
--- TODO: refactor
 getMove :: Code -> Code -> Move
 getMove cd att = let
                    f = (exactMatches cd att)
