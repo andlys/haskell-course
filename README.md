@@ -1,2 +1,2 @@
-## Laboratory works of Haskell course
+## Haskell course at university
 
