@@ -21,13 +21,13 @@ x2:
 	<b>b</b>
 
 just for fun =)
-showXML (Element "a" [("href", "http://wikipedia.org")] [Text "link to wiki"])
+printXML (Element "a" [("href", "http://wikipedia.org")] [Text "link to wiki"])
 -}
 
 -- class work
 cntElement :: XML -> Int
 cntElement (Text _) = 0
-cntElement (Element _ _ children) = (+) (sum$map cntElement children) 1
+cntElement (Element _ _ children) = (+1) . sum $ map cntElement children
 
 -- getters
 -- TODO semd Denis: getChildrenLength getChiLen
@@ -119,12 +119,17 @@ getValue x2 == Text "AB"
 -- Задача 7 -----------------------------------------
 addText :: String -> Stack -> Stack
 -- Передумова: Є по крайній мірі один елемент Element в стеку
-addText = undefined
+addText _ [] = error "unsupported operation"
+addText s (x:xs) = (addChild (Text s) x) : xs
+-- TODO test
 
 -- Задача 8 -----------------------------------------
 popAndAdd :: Stack -> Stack
 -- Передумова: Є по крайній мірі два елемента Elements в стеку
-popAndAdd = undefined
+popAndAdd [] = error "unsupporded operation"
+popAndAdd (_:[]) = error "unsupporded operation"
+popAndAdd (x:(y:list)) = addChild x y : list
+-- TODO test
 
 -- Початковий елемент стеку
 sentinel :: XML
@@ -133,8 +138,35 @@ sentinel = Element "" [] []
 -- Задача 9 -----------------------------------------
 parseAttributes :: String -> (Attributes, String)
 -- Передумова: Рядок, що містить XML-атрибути, синтаксично вірний
-parseAttributes  = undefined
+parseAttributes [] = ([], "")
+parseAttributes s = let
+                      tuple = splitBy s '>'
+                      params = parseName $ fst tuple
+                      txt = snd tuple
+                    in if (elem '=' $ snd params)
+                       then (params : (fst $ parseAttributes $ snd params), txt)
+                       else ([params], txt)
+-- TODO test
 
+-- splits str by sep(arator)
+splitBy :: String -> Char -> (String, String)
+splitBy str sep = (before str sep, after str sep)
+
+before :: String -> Char -> String
+before [] _ = ""
+before (x:xs) sep | x == sep = ""
+                  | otherwise = x : before xs sep
+
+after :: String -> Char -> String
+after [] _ = ""
+after (x:xs) sep | x == sep = xs
+                 | otherwise = after xs sep
+
+{-
+--test
+after  "hello>world" '>'
+before "hello>world" '>'
+-}
 -- Аналіз імені елемента/атрибута
 parseName :: String -> (Name, String)
 parseName []
@@ -145,6 +177,10 @@ parseName s@(c1 : _)
                       " must begin with a letter")
   where
     isNameChar c = isAlpha c || isDigit c || elem c "-."
+-- TODO ask the lecturer in details how it works
+{-
+parseName "a = \"0\" b = \"1\" >rest of text"
+-}
 
 -- Задача 10 -----------------------------------------
 parse :: String -> XML
