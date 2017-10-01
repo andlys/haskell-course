@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -Wall #-}
 module Lysenko04 where
 
-import Data.Char
+-- lab04 concerning XML PARSING
 
--- XML PARSING
+import Data.Char
 
 type Name = String
 type Attributes = [(Name, String)]
@@ -12,15 +12,7 @@ data XML = Text String | Element Name Attributes [XML]
 type Stack = [XML]
 
 {-
-x1:
-<a>A</a>
-
-x2:
-<a x="1">
-    <b>a</b>
-	<b>b</b>
-
-just for fun =)
+--example
 printXML (Element "a" [("href", "http://wikipedia.org")] [Text "link to wiki"])
 -}
 
@@ -30,7 +22,6 @@ cntElement (Text _) = 0
 cntElement (Element _ _ children) = (+1) . sum $ map cntElement children
 
 -- getters
--- TODO semd Denis: getChildrenLength getChiLen
 -- TODO delete
 getAllChildren :: XML -> [XML]
 getAllChildren (Text _) = []
@@ -105,7 +96,7 @@ getValue :: XML -> XML
 getValue t@(Text _) = t
 getValue (Element _ _ []) = Text ""
 getValue (Element _ _ children) =
-    let txt = foldl (++) "" (map (getText.getValue) children)
+    let txt = foldl (++) "" $ map (getText.getValue) children
     in Text txt
 
 {-
@@ -121,7 +112,11 @@ addText :: String -> Stack -> Stack
 -- Передумова: Є по крайній мірі один елемент Element в стеку
 addText _ [] = error "unsupported operation"
 addText s (x:xs) = (addChild (Text s) x) : xs
--- TODO test
+{-
+--test
+let tmpTxt = [Element "a" [] [Text "A",Text "B"], Element "" [] []]
+addText  "B" [Element "a" [] [Text "A"], sentinel]  == tmpTxt
+-}
 
 -- Задача 8 -----------------------------------------
 popAndAdd :: Stack -> Stack
@@ -129,7 +124,11 @@ popAndAdd :: Stack -> Stack
 popAndAdd [] = error "unsupporded operation"
 popAndAdd (_:[]) = error "unsupporded operation"
 popAndAdd (x:(y:list)) = addChild x y : list
--- TODO test
+{-
+--test
+let tmpElt = [Element "ab" [("a","1")] [Element "a" [] [Text "A"]], Element "" [] []]
+popAndAdd [Element "a" [] [Text "A"], Element "ab" [("a","1")] [], sentinel] == tmpElt
+-}
 
 -- Початковий елемент стеку
 sentinel :: XML
@@ -139,33 +138,41 @@ sentinel = Element "" [] []
 parseAttributes :: String -> (Attributes, String)
 -- Передумова: Рядок, що містить XML-атрибути, синтаксично вірний
 parseAttributes [] = ([], "")
-parseAttributes s = let
-                      tuple = splitBy s '>'
-                      params = parseName $ fst tuple
-                      txt = snd tuple
-                    in if (elem '=' $ snd params)
-                       then (params : (fst $ parseAttributes $ snd params), txt)
-                       else ([params], txt)
--- TODO test
+parseAttributes s =
+  let
+    tuple = splitBy s '>'
+    params = (parseName.skipSpace.fst) tuple
+    txt = snd tuple
+    cnt = length $ filter (== '=') $ snd params
+    fltr = filter (\c -> notElem c "/\"= ")
+    twiceSplitted = (splitBy (snd $ splitBy (snd params) '\"') '\"')
+  in if cnt > 1
+     then ((fst params, fltr $ fst twiceSplitted) :
+              (fst $ parseAttributes $ snd twiceSplitted), txt)
+     else ([(fst params, fltr $ snd params)], txt)
+{-
+--test
+parseAttributes "x=\"7\">rest of text"
 
--- splits str by sep(arator)
+parseAttributes "x=\"7\">rest of text" == ([("x","7")],"rest of text")
+let tmpAttr = ([("a","0"),("b","1")],"rest of text")
+parseAttributes "a = \"0\" b = \"1\" >rest of text" == tmpAttr
+-}
+
+-- note: we can also can use break instead of writing the function below
+-- splits str by sep-arator
+
 splitBy :: String -> Char -> (String, String)
-splitBy str sep = (before str sep, after str sep)
-
-before :: String -> Char -> String
-before [] _ = ""
-before (x:xs) sep | x == sep = ""
-                  | otherwise = x : before xs sep
-
-after :: String -> Char -> String
-after [] _ = ""
-after (x:xs) sep | x == sep = xs
-                 | otherwise = after xs sep
+splitBy str sep =
+  let
+    tuple = break (== sep) str
+    val2 = if (null.snd) tuple then (snd tuple) else ((tail.snd) tuple)
+  in (fst tuple, val2)
 
 {-
 --test
-after  "hello>world" '>'
-before "hello>world" '>'
+splitBy "hello>world" '>'
+splitBy "" '>'
 -}
 -- Аналіз імені елемента/атрибута
 parseName :: String -> (Name, String)
@@ -177,7 +184,6 @@ parseName s@(c1 : _)
                       " must begin with a letter")
   where
     isNameChar c = isAlpha c || isDigit c || elem c "-."
--- TODO ask the lecturer in details how it works
 {-
 parseName "a = \"0\" b = \"1\" >rest of text"
 -}
@@ -188,9 +194,17 @@ parse :: String -> XML
 parse s = parse' (skipSpace s) [sentinel]
 
 parse' :: String -> Stack -> XML
-parse' = undefined
+parse' _ _ = Element "" [] []
 
-
+{-
+--test
+parse s1 == Element "a" [] [Text "A"]
+parse s1 == x1
+parse s2 == x2
+parse s3 == x3
+parse films == filmsParsed
+parse casablanca == casablancaParsed
+-}
 -----------------------------------------------------------------------
 -- Деякі корисні функції перетворення в рядок і виводу
 -- Функція перетворення в рядок ('show' function) для XML об'єктів
