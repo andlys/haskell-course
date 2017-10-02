@@ -22,6 +22,11 @@ cntElement (Text _) = 0
 cntElement (Element _ _ children) = (+1) . sum $ map cntElement children
 
 -- getters
+
+getAllChildren :: XML -> [XML]
+getAllChildren (Text _) = error "no children"
+getAllChildren (Element _ _ list) = list
+
 getText :: XML -> String
 getText (Text txt) = txt
 getText (Element _ _ _) = ""
@@ -136,16 +141,16 @@ parseAttributes [] = ([], "")
 parseAttributes s =
   let
     tuple = splitBy s '>'
-    params = (parseName.skipSpace.fst) tuple
-    txt = snd tuple
-    cnt = length $ filter (== '=') $ snd params
-    fltr = \str -> skipSpace $ filter (\c -> notElem c "/\"=") str
-    twiceSplitted = (splitBy (snd $ splitBy ((reverse.skipSpace.reverse.snd)
-                                                params) '\"') '\"')
+    atts = (parseName.skipSpace.fst) tuple
+    name = fst atts
+    contents = snd tuple
+    cnt = length $ filter (== '=') $ snd atts
+    twiceSplitted = (splitBy (snd $ splitBy (snd atts) '\"') '\"')
+    value = skipSpace $ filter (\c -> notElem c "/=") $ fst twiceSplitted
+    attsRest = snd twiceSplitted
   in if cnt > 1
-     then ((fst params, fltr $ fst twiceSplitted) :
-              (fst $ parseAttributes $ snd twiceSplitted), txt)
-     else ([(fst params, fltr $ snd params)], txt)
+     then ((name, value) : (fst $ parseAttributes attsRest), contents)
+     else ([(name, value)], contents)
 {-
 --test
 parseAttributes "x=\"7\">rest of text"
@@ -185,31 +190,29 @@ parseName "a = \"0\" b = \"1\" >rest of text"
 -- Задача 10 -----------------------------------------
 parse :: String -> XML
 -- Передумова: рядок, що містить XML-документ, синтаксично вірний
-parse s = undefined -- parse' (skipSpace s) [sentinel]
+parse s = parse' (skipSpace s) [sentinel]
 
--- TODO refactor this
-parse' :: String -> Stack -> (String, Attributes, String) -- XML
-{-
-parse' "" [ elt@(Element _ _ _) ] = elt
-parse' str [] = error "incorrect input" -- TODO delete
-parse' "" stack = parse' "" $ popAndAdd stack
--}
-parse' str stack =
-  let
-    tagName = fst $ parseName $ drop 1 str
-    lenOpenTag = 2 + length tagName -- match "<tag\s"
-    lenRest = length str - (2 * (length tagName) + 5)
-    -- holds contents of the tag as well as it's attributes
-    contents = skipSpace $ take lenRest $ drop lenOpenTag str
-    atts = if (contents!!0 == '<' -- no attribute-first thing in content is tag
-                || (not (elem '>' contents))) -- contents is a simple text
-             then ([],contents)
-             else parseAttributes contents
-    -- elt = Element tagName fst atts []
-  in (tagName, fst atts, snd atts) -- parse' contents elt : stack
+parse' :: String -> Stack -> XML
+parse' _ [] = error "incorrect input"
+parse' [] stack = head $ getAllChildren $ head stack
+parse' [_] (_:_) = error "incorrect input"
+parse' str@(a:substr@(b:_)) stack
+  | a == '<' &&
+    b == '/' =  let right = snd $ splitBy str '>'
+                in parse' right $ popAndAdd stack
+  | a == '<' =  let
+                  tuple = splitBy substr '>'
+                  left = fst tuple
+                  right = snd tuple
+                  name = fst $ parseName left
+                  atts = fst $ parseAttributes $ drop (length name) left
+                in parse' right ((Element name atts []):stack)
+  | otherwise = let
+                  tuple = break (== '<') str
+                  left = fst tuple
+                  right = snd tuple
+                in parse' right $ popAndAdd $ (Text left):stack
 
--- third elt of tuple
-trd (_,_,v) = v
 {-
 --test
 parse s1 == Element "a" [] [Text "A"]
