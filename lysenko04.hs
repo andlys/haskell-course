@@ -22,11 +22,6 @@ cntElement (Text _) = 0
 cntElement (Element _ _ children) = (+1) . sum $ map cntElement children
 
 -- getters
--- TODO delete
-getAllChildren :: XML -> [XML]
-getAllChildren (Text _) = []
-getAllChildren (Element _ _ children) = children
-
 getText :: XML -> String
 getText (Text txt) = txt
 getText (Element _ _ _) = ""
@@ -144,8 +139,9 @@ parseAttributes s =
     params = (parseName.skipSpace.fst) tuple
     txt = snd tuple
     cnt = length $ filter (== '=') $ snd params
-    fltr = filter (\c -> notElem c "/\"= ")
-    twiceSplitted = (splitBy (snd $ splitBy (snd params) '\"') '\"')
+    fltr = \str -> skipSpace $ filter (\c -> notElem c "/\"=") str
+    twiceSplitted = (splitBy (snd $ splitBy ((reverse.skipSpace.reverse.snd)
+                                                params) '\"') '\"')
   in if cnt > 1
      then ((fst params, fltr $ fst twiceSplitted) :
               (fst $ parseAttributes $ snd twiceSplitted), txt)
@@ -159,14 +155,12 @@ let tmpAttr = ([("a","0"),("b","1")],"rest of text")
 parseAttributes "a = \"0\" b = \"1\" >rest of text" == tmpAttr
 -}
 
--- note: we can also can use break instead of writing the function below
 -- splits str by sep-arator
-
 splitBy :: String -> Char -> (String, String)
 splitBy str sep =
   let
     tuple = break (== sep) str
-    val2 = if (null.snd) tuple then (snd tuple) else ((tail.snd) tuple)
+    val2 = if (null.snd) tuple then "" else (tail.snd) tuple
   in (fst tuple, val2)
 
 {-
@@ -191,11 +185,31 @@ parseName "a = \"0\" b = \"1\" >rest of text"
 -- Задача 10 -----------------------------------------
 parse :: String -> XML
 -- Передумова: рядок, що містить XML-документ, синтаксично вірний
-parse s = parse' (skipSpace s) [sentinel]
+parse s = undefined -- parse' (skipSpace s) [sentinel]
 
-parse' :: String -> Stack -> XML
-parse' _ _ = Element "" [] []
+-- TODO refactor this
+parse' :: String -> Stack -> (String, Attributes, String) -- XML
+{-
+parse' "" [ elt@(Element _ _ _) ] = elt
+parse' str [] = error "incorrect input" -- TODO delete
+parse' "" stack = parse' "" $ popAndAdd stack
+-}
+parse' str stack =
+  let
+    tagName = fst $ parseName $ drop 1 str
+    lenOpenTag = 2 + length tagName -- match "<tag\s"
+    lenRest = length str - (2 * (length tagName) + 5)
+    -- holds contents of the tag as well as it's attributes
+    contents = skipSpace $ take lenRest $ drop lenOpenTag str
+    atts = if (contents!!0 == '<' -- no attribute-first thing in content is tag
+                || (not (elem '>' contents))) -- contents is a simple text
+             then ([],contents)
+             else parseAttributes contents
+    -- elt = Element tagName fst atts []
+  in (tagName, fst atts, snd atts) -- parse' contents elt : stack
 
+-- third elt of tuple
+trd (_,_,v) = v
 {-
 --test
 parse s1 == Element "a" [] [Text "A"]
