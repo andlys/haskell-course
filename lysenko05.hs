@@ -66,22 +66,62 @@ plusAbs (Pred Zero)  (Succ (Succ Zero))   ==  Succ Zero
 plusAbs (Succ (Succ Zero)) (Pred (Pred Zero)) == Zero
 plusAbs (Succ Zero) (Succ Zero) == Succ (Succ Zero)
 plusAbs (Pred Zero) (Pred Zero) == Pred (Pred Zero)
+plusAbs (Pred Zero) (Pred (Pred Zero)) == (Pred (Pred (Pred Zero)))
 -}
+
+-- getter
+getAbs :: AbstractInteger -> AbstractInteger
+getAbs Zero = Zero
+getAbs (Pred x) = x
+getAbs (Succ x) = x
+-- getter
+positiveAbs :: AbstractInteger -> Bool
+positiveAbs (Succ _) = True
+positiveAbs _ = False
+-- getter
+negativeAbs :: AbstractInteger -> Bool
+negativeAbs = (not.positiveAbs)
 
 -- Задача 4 -----------------------------------------
 timesAbs :: AbstractInteger -> AbstractInteger -> AbstractInteger
 timesAbs Zero _ = Zero
 timesAbs _ Zero = Zero
--- TODO refactor this function
 timesAbs (Succ Zero) x = x
 timesAbs x (Succ Zero) = x
-timesAbs (Pred y) x@(Pred Zero) = Succ $ timesAbs x y
-timesAbs x@(Pred Zero) (Pred y) = Succ $ timesAbs x y
+timesAbs (Pred Zero) (Pred Zero) = Succ Zero
+timesAbs y x@(Pred Zero) | positiveAbs y = Pred $ timesAbs (getAbs y) x
+                         | otherwise = Succ $ timesAbs (getAbs y) x
+timesAbs x@(Pred Zero) y = timesAbs y x
+timesAbs x@(Pred _) (Pred y) = plusAbs (timesAbs x (Pred Zero)) $ timesAbs x y
+timesAbs x y = plusAbs x $ timesAbs x $ getAbs y
+
+-- handy testing for timesAbs
+timesAbsTest :: Integer -> Integer -> Integer -> Bool
+timesAbsTest a b result = (fromInteger result) == timesAbs (fromInteger a)
+                                                           (fromInteger b)
 
 {-
 --test
-timesAbs  (Pred (Pred Zero)) (Pred (Pred (Pred Zero))) =
-                =    Succ( Succ ( Succ (Succ (Succ (Succ Zero)))))
+timesAbs (Succ (Succ Zero)) (Pred Zero) == fromInteger (-2)
+timesAbs (Pred (Pred Zero)) (Pred (Pred (Pred Zero))) == (Succ (Succ (Succ (Succ (Succ (Succ Zero))))))
+timesAbsTest 1 0 0
+timesAbsTest 0 1 0
+timesAbsTest (-1) 0 0
+timesAbsTest 0 (-1) 0
+
+timesAbsTest 1 1 1
+timesAbsTest (-1) 1 (-1)
+timesAbsTest (-1) (-1) 1
+timesAbsTest 3 (-1) (-3)
+timesAbsTest (-1) 3 (-3)
+
+timesAbsTest 2 2 4
+timesAbsTest 3 2 6
+timesAbsTest (-1) 4 (-4)
+timesAbsTest 4 (-1) (-4)
+timesAbsTest 1 (-3) (-3)
+timesAbsTest (-3) 1 (-3)
+timesAbsTest (-2) (-3) 6
 -}
 
 -- Задача 5 -----------------------------------------
@@ -103,7 +143,19 @@ instance Num AbstractInteger  where
 
 -- Задача 6 -----------------------------------------
 factorial :: (Eq a, Num a) => a -> a
-factorial = undefined
+factorial n | n == 1    = 1
+            | otherwise = n * factorial (n - 1)
+
+{-
+--test
+factorial (Succ Zero)
+factorial (Succ (Succ Zero))
+factorial (Succ (Succ (Succ Zero))) == 6
+factorial (Succ 3) == 24
+factorial (Succ 4) == 120
+factorial (Succ 5) == 720
+factorial (Succ 6) == 5040
+-}
 
 -- Задача  7 -----------------------------------------
 data Quaternion = Quaternion Double Double Double Double deriving (Eq)
