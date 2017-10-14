@@ -137,9 +137,9 @@ instance Num AbstractInteger  where
     abs     Zero = Zero
     abs    (Pred x) = Succ $ abs x
     abs    x@(Succ _) = x
-    signum  Zero = 0
-    signum (Pred _) = -1
-    signum (Succ _) = 1
+    signum  Zero = Zero
+    signum (Pred _) = Pred Zero
+    signum (Succ _) = Succ Zero
 
 -- Задача 6 -----------------------------------------
 factorial :: (Eq a, Num a) => a -> a

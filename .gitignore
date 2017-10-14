@@ -1,3 +1,5 @@
 *#
 *.docx
 *.pptx
+*.hi
+*.o
