@@ -70,9 +70,6 @@ assignArray :: Value -> Value -> Value -> Value
 -- Передумова: Три аргумента (Value)  мають значення відповідного типу
 --     (масив (A),  ціле (I) і ціле (I)) відповідно.
 assignArray (A contents) (I index) (I value) =
-    -- A (map (\(i, v) -> (if i == index then (i, value)
-    --                     else (i, v)))
-    --        contents)
     A ((index, value) : (filter ((index /=).fst) contents))
 assignArray val _ _ = val
 
@@ -104,21 +101,66 @@ applyOp Equal _ _ = error "unsupported operation"
 -- Задача 6 -----------------------------------------
 bindArgs :: [Id] -> [Value] -> State
 -- Передумова: списки мають однакову довжину
-bindArgs = undefined
+bindArgs [] _ = []
+bindArgs _ [] = []
+bindArgs (i:is) (v:vs) = (i, (Local, v)) : bindArgs is vs
 
 -- Задача 7 -----------------------------------------
 eval :: Exp -> [FunDef] -> State -> Value
-eval = undefined
+eval (Const val) _ _ = val
+eval (Var i) _ state = getValue i state
+eval (OpApp op x y) fs state = applyOp op (eval x fs state) (eval y fs state)
+eval (Cond exif exthen exelse) fs state = if (eval exif fs state) == (I 1)
+                                            then (eval exthen fs state)
+                                            else (eval exelse fs state)
+eval (FunApp fid fexs) fs state =
+    let fun     = head $ filter ((fid ==).fst) fs
+        funvars = head $ map (fst.snd) [fun]
+        funexpr = head $ map (snd.snd) [fun]
+        values  = evalArgs fexs [fun] state
+        bindedState = bindArgs (map getVarId funvars) values
+    in (eval funexpr fs bindedState)
+
+getVarId :: VarDef -> Id
+getVarId (Arr i) = i
+getVarId (Int i) = i
 
 evalArgs :: [Exp] -> [FunDef] -> State -> [Value]
-evalArgs = undefined
+evalArgs es fs state = map (\e -> eval e fs state) es
 
 -- Задача 8 -----------------------------------------
 executeStatement :: Statement -> [FunDef] -> [ProcDef] -> State -> State
-executeStatement  = undefined
+executeStatement (Assign i e) fs ps state =
+    updateVar (i, (eval e fs state)) state
+executeStatement (AssignA i e1 e2) fs ps state =
+    updateVar (i, assignArray (getValue i state)
+                              (eval e1 fs state)
+                              (eval e2 fs state))
+              state
+executeStatement (If iff thenn elsee) fs ps state =
+    if (eval iff fs state) == (I 1)
+        then (executeBlock thenn fs ps state)
+        else (executeBlock elsee fs ps state)
+executeStatement while@(While cond block) fs ps state =
+    if (eval cond fs state) == (I 1)
+        then executeStatement while fs ps (executeBlock block fs ps state) -- do one iteration
+        else state -- quit
+executeStatement (Call i pid exprList) fs ps state
+  = let (procLocals, procBlock) = lookUp pid ps
+        procValues = evalArgs exprList fs state
+        callingState = (bindArgs (map getVarId procLocals) procValues) ++ getGlobals   state
+        returnState = executeBlock procBlock fs ps callingState
+        modifiedState = getLocals state ++ getGlobals returnState
+        newBinding = (i, (getValue "$res" returnState))
+        newState = if i /= "" then updateVar newBinding modifiedState
+                              else modifiedState
+    in newState
+executeStatement (Return e) fs ps state =
+    updateVar ("$res", eval e fs state) state
 
 executeBlock :: Block -> [FunDef] -> [ProcDef] -> State -> State
-executeBlock  = undefined
+executeBlock [] _  _ state = state
+executeBlock (stmt:rest) fs ps state = executeBlock rest fs ps (executeStatement stmt fs ps state)
 
 ---------------------------------------------------------------------
 -- Допоміжні функції і дані для тестування...
