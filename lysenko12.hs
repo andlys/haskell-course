@@ -86,17 +86,54 @@ unify :: Type -> Type -> Maybe Sub
 unify t t' = unifyPairs [(t, t')] []
 
 unifyPairs :: [(Type, Type)] -> Sub -> Maybe Sub
-unifyPairs = undefined
+unifyPairs [] su = Just su
+unifyPairs ((TInt, TInt):xt) su = unifyPairs xt su
+unifyPairs ((TBool, TBool):xt) su = unifyPairs xt su
+unifyPairs (((TVar v1), (TVar v2)):xt) su | v1 == v2 = unifyPairs xt su
+unifyPairs (((TVar v),t):xt) su | occurs v t = Nothing
+                                | otherwise = unifyPairs (map (pairSub [(v,t)]) xt) ((v,t):su)
+unifyPairs ((t,(TVar v)):xt) su | occurs v t = Nothing
+                                | otherwise = unifyPairs (map (pairSub [(v,t)]) xt) ((v,t):su)
+unifyPairs (((TFun t1 t2), (TFun t3 t4)):xt) su = unifyPairs ((t1,t3):((t2,t4):xt)) su
+unifyPairs _ _ = Nothing
+
+pairSub :: Sub -> (Type, Type) -> (Type, Type)
+pairSub su (t1,t2) = ((applySub su t1), (applySub su t2))
 
 -- Задача 8 -----------------------------------------
 inferPolyType :: Expr -> Type
 inferPolyType e =
     let vx   = ['a' : show n | n <- [(1::Int)..]]
-        (_, t, _) = inferPolyType' e [] vx
-    in t
+        (_, t, _) = inferPolyType' e [] vx    
+    in t  
 
 inferPolyType' :: Expr -> TEnv -> [String] -> (Sub, Type, [String])
-inferPolyType' = undefined
+inferPolyType' (Number _) _ nx = ([], TInt, nx)
+inferPolyType' (Boolean _) _ nx = ([], TBool, nx)
+inferPolyType' (Id s) en nx = ([], (tryToLookUp s TErr en), nx)
+inferPolyType' (Prim s) _ nx = ([], (tryToLookUp s TErr primTypes), nx)
+inferPolyType' (Fun x e) en (vs:vx) | isErr te = ([],TErr,[])
+                                    | otherwise = (nsu, (TFun (applySub nsu (TVar vs)) te), nv)
+                                    where sub = (x,(TVar vs)):en
+                                          (nsu, te, nv) = inferPolyType' e sub vx
+inferPolyType' (App f e) en (vs:vx) | isNothing mnsu = ([], TErr, [])
+                                    | otherwise = (combineSubs [ssu,nsu,fsu],applySub nsu (TVar vs),sv)
+                                    where (fsu,ft,fv) = inferPolyType' f en vx
+                                          (ssu,te,sv) = inferPolyType' e (updateTEnv en fsu) fv
+                                          mnsu = unify ft (TFun te (TVar vs))
+                                          (Just nsu) = mnsu
+inferPolyType' (Cond c t f) en (_:vx) = (combineSubs[csu,tsu,fsu],tt,fv)
+                                     where (csu,_,cv) = inferPolyType' c en vx
+                                           (tsu,tt,tv) = inferPolyType' t csu cv
+                                           (fsu,_,fv) = inferPolyType' f csu tv
+inferPolyType' _ _ _ = ([],TErr,[])
+
+
+
+
+isErr :: Type -> Bool
+isErr TErr = True
+isErr _ = False
 
 --------------------------------------------------------------------
 showT :: Type -> String
