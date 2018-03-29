@@ -31,7 +31,7 @@ tryToLookUp :: Eq a => a -> b -> [(a, b)] -> b
 tryToLookUp a b list = let lst = (filter ((a ==).fst) list)
                        in if length lst == 0
                            then b
-                           else lookUp a list
+                           else lookUp a lst
 
 -- Задача 3 -----------------------------------------
 reverseLookUp :: Eq b => b -> [(a, b)] -> [a]
@@ -58,12 +58,12 @@ inferType (Cond iff thenn elsee) x
             thenn2 = inferType thenn x
             elsee2 = inferType elsee x
 inferType (App expr1 expr2) environment
-    | not (isFun tmp) = TErr
-    | inferType expr2 environment == input = output
+    | not (isFun tmp) = TErr -- note: if expr1 is not a function, then syntax of App expression is invalid and return type is TErr (error)
+    | inferType expr2 environment == input = output -- note: expr1: b->c; expr2: a->b;  then  expr1(expr2): a->c
     | otherwise = TErr
       where tmp = inferType expr1 environment
             (TFun input output) = tmp
-inferType (Fun _ expr) environment = inferType expr environment
+inferType (Fun _ expr) environment = inferType expr environment -- note: function type does not depend on arguments' types, but depents solely on its body
 
 isBool ::Type -> Bool
 isBool TBool = True
